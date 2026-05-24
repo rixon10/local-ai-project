@@ -24,10 +24,14 @@ def decide_tool(user_input):
 
     # PDF Questions
     pdf_keywords = [
-        "pdf",
-        "document",
-        "paper"
-    ]
+    "pdf",
+    "document",
+    "paper",
+    "neural",
+    "machine learning",
+    "deep learning",
+    "ai"
+]
 
     if any(keyword in user_input for keyword in pdf_keywords):
 
