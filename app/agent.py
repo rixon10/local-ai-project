@@ -1,3 +1,10 @@
+import json
+
+from json_repair import repair_json
+
+from llm import ask_llm
+from prompts import SYSTEM_PROMPT
+
 from tools import (
     calculator,
     read_file
@@ -5,84 +12,86 @@ from tools import (
 
 from rag import search_pdf
 
-
-def decide_tool(user_input):
-
-    user_input = user_input.lower()
-
-    # Calculator
-    math_symbols = ["+", "-", "*", "/"]
-
-    if any(symbol in user_input for symbol in math_symbols):
-
-        return "calculator"
-
-    # File Reader
-    if ".py" in user_input or ".txt" in user_input:
-
-        return "file_reader"
-
-    # PDF Questions
-    pdf_keywords = [
-    "pdf",
-    "document",
-    "paper",
-    "neural",
-    "machine learning",
-    "deep learning",
-    "ai"
-]
-
-    if any(keyword in user_input for keyword in pdf_keywords):
-
-        return "pdf_search"
-
-    return "chat"
+from tool_registry import TOOLS
 
 
-def run_agent(user_input):
+def get_tool_decision(user_input):
 
-    tool = decide_tool(user_input)
+    tool_prompt = f"""
+    You are an AI agent.
+
+    Decide which tool should be used.
+
+    Available tools:
+
+    {json.dumps(TOOLS, indent=2)}
+
+    Respond ONLY in valid JSON format.
+
+    Example:
+    {{
+        "tool": "calculator",
+        "input": "55 * 12"
+    }}
+
+    USER INPUT:
+    {user_input}
+    """
+
+    messages = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT
+        },
+        {
+            "role": "user",
+            "content": tool_prompt
+        }
+    ]
+
+    stream = ask_llm(messages)
+
+    response_text = ""
+
+    for chunk in stream:
+
+        response_text += chunk["message"]["content"]
+
+    try:
+
+        repaired = repair_json(response_text)
+
+        parsed = json.loads(repaired)
+
+        return parsed
+
+    except Exception:
+
+        return {
+            "tool": "chat",
+            "input": user_input
+        }
+
+
+def execute_tool(tool_name, tool_input):
 
     # -------------------------
     # CALCULATOR
     # -------------------------
 
-    if tool == "calculator":
+    if tool_name == "calculator":
 
-        try:
+        result = calculator(tool_input)
 
-            result = calculator(user_input)
-
-            return f"Calculation Result: {result}"
-
-        except Exception:
-
-            return "Could not calculate."
+        return f"Calculation Result: {result}"
 
     # -------------------------
     # FILE READER
     # -------------------------
 
-    elif tool == "file_reader":
+    elif tool_name == "file_reader":
 
-        words = user_input.split()
-
-        file_path = None
-
-        for word in words:
-
-            if "." in word:
-
-                file_path = word
-
-                break
-
-        if not file_path:
-
-            return "No valid file found."
-
-        content, error = read_file(file_path)
+        content, error = read_file(tool_input)
 
         if error:
 
@@ -98,9 +107,9 @@ def run_agent(user_input):
     # PDF SEARCH
     # -------------------------
 
-    elif tool == "pdf_search":
+    elif tool_name == "pdf_search":
 
-        docs = search_pdf(user_input)
+        docs = search_pdf(tool_input)
 
         context = "\n".join(docs)
 
@@ -110,8 +119,54 @@ def run_agent(user_input):
         {context}
         """
 
-    # -------------------------
-    # NORMAL CHAT
-    # -------------------------
-
     return None
+
+
+def run_agent(user_input):
+
+    decision = get_tool_decision(user_input)
+    tool_name = decision.get("tool", "chat")
+
+    tool_input = decision.get("input", user_input)
+
+    # Fallback safety
+    if not tool_input:
+
+        tool_input = user_input
+
+    # tool_name = decision.get("tool")
+
+    # tool_input = decision.get("input")
+
+    if tool_name == "chat":
+
+        return None
+
+    tool_result = execute_tool(
+        tool_name,
+        tool_input
+    )
+
+    final_prompt = f"""
+    User Question:
+    {user_input}
+
+    Tool Used:
+    {tool_name}
+
+    Tool Result:
+    {tool_result}
+
+    Generate a helpful response.
+    """
+
+    return [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT
+        },
+        {
+            "role": "user",
+            "content": final_prompt
+        }
+    ]

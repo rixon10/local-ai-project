@@ -163,17 +163,17 @@ while True:
 
         Explain what this file does.
         """
-
-        temp_messages = [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT
-            },
-            {
-                "role": "user",
-                "content": file_prompt
-            }
-        ]
+        temp_messages = agent_messages
+        # temp_messages = [
+        #     {
+        #         "role": "system",
+        #         "content": SYSTEM_PROMPT
+        #     },
+        #     {
+        #         "role": "user",
+        #         "content": file_prompt
+        #     }
+        # ]
 
         console.print(
             "[bold green]AI:[/bold green] ",
@@ -400,14 +400,16 @@ while True:
 
 
 
-    
+
     # -------------------------
     # AI AGENT
     # -------------------------
 
-    agent_response = run_agent(user_input)
+    # agent_response = run_agent(user_input)
+    agent_messages = run_agent(user_input)
 
-    if agent_response:
+    # if agent_response:
+    if agent_messages:
 
         temp_messages = [
             {
@@ -421,7 +423,7 @@ while True:
                 {user_input}
 
                 Tool Result:
-                {agent_response}
+                {agent_messages}
 
                 Generate a helpful response.
                 """
