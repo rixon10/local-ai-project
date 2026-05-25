@@ -1,2 +1,10 @@
 ollama
 rich
+chromadb
+sentence-transformers
+pypdf
+torch
+transformers
+huggingface-hub
+json-repair
+numpy
